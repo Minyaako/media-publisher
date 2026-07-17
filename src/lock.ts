@@ -13,6 +13,19 @@ import { loadManifest } from './manifest.js'
 const sha256 = (value: Buffer | string) =>
   createHash('sha256').update(value).digest('hex')
 
+const canonicalJson = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(',')}]`
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`)
+    return `{${entries.join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
 async function resolveDerivative(manifestPath: string, file: string) {
   const root = await realpath(dirname(manifestPath))
   const candidate = await realpath(resolve(root, file))
@@ -30,7 +43,10 @@ async function resolveDerivative(manifestPath: string, file: string) {
   return candidate
 }
 
-export async function buildLock(manifestPath: string): Promise<MediaLock> {
+export async function buildLock(
+  manifestPath: string,
+  sourceHashes: ReadonlyMap<string, string> = new Map(),
+): Promise<MediaLock> {
   const manifest = await loadManifest(manifestPath)
   const assets: LockedAsset[] = []
 
@@ -49,6 +65,15 @@ export async function buildLock(manifestPath: string): Promise<MediaLock> {
     const digest = sha256(body)
     const objectKey = `${manifest.namespace}/${asset.objectBase}-${digest}.webp`
 
+    const provenance = asset.transform.mode === 'recipe'
+      ? {
+          ...(sourceHashes.get(asset.id)
+            ? { sourceSha256: sourceHashes.get(asset.id) }
+            : {}),
+          recipeSha256: sha256(canonicalJson(asset.transform)),
+        }
+      : {}
+
     assets.push({
       id: asset.id,
       file: asset.file,
@@ -62,6 +87,7 @@ export async function buildLock(manifestPath: string): Promise<MediaLock> {
       cacheControl: IMMUTABLE_CACHE_CONTROL,
       sourceRef: asset.sourceRef,
       rights: asset.rights,
+      ...provenance,
     })
   }
 
@@ -78,13 +104,50 @@ export function serializeLock(lock: MediaLock) {
   return `${JSON.stringify(lock, null, 2)}\n`
 }
 
+export async function loadLock(lockPath: string): Promise<MediaLock> {
+  const parsed: unknown = JSON.parse(await readFile(lockPath, 'utf8'))
+  if (!isMediaLock(parsed)) throw new Error('media lock is malformed')
+  return parsed
+}
+
 export async function validateLock(manifestPath: string, lockPath: string): Promise<void> {
-  const [actual, expected] = await Promise.all([
-    readFile(lockPath, 'utf8'),
-    buildLock(manifestPath).then(serializeLock),
-  ])
+  const actual = await readFile(lockPath, 'utf8')
+  const parsed = JSON.parse(actual) as Partial<MediaLock>
+  const sourceHashes = new Map(
+    (parsed.assets ?? [])
+      .filter((asset): asset is LockedAsset & { sourceSha256: string } =>
+        typeof asset.sourceSha256 === 'string',
+      )
+      .map((asset) => [asset.id, asset.sourceSha256]),
+  )
+  const expected = serializeLock(await buildLock(manifestPath, sourceHashes))
 
   if (actual !== expected) {
     throw new Error('media lock is stale; regenerate it from the current manifest and derivatives')
   }
+}
+
+function isMediaLock(value: unknown): value is MediaLock {
+  if (typeof value !== 'object' || value === null) return false
+  const lock = value as Partial<MediaLock>
+  return lock.version === 1
+    && typeof lock.publisherVersion === 'string'
+    && typeof lock.namespace === 'string'
+    && typeof lock.cdnBaseUrl === 'string'
+    && Array.isArray(lock.assets)
+    && lock.assets.every((asset) =>
+      typeof asset === 'object' && asset !== null
+      && typeof asset.id === 'string'
+      && typeof asset.file === 'string'
+      && typeof asset.sha256 === 'string' && /^[a-f0-9]{64}$/.test(asset.sha256)
+      && typeof asset.bytes === 'number' && Number.isSafeInteger(asset.bytes) && asset.bytes >= 0
+      && asset.contentType === 'image/webp'
+      && typeof asset.objectKey === 'string'
+      && typeof asset.url === 'string'
+      && typeof asset.cacheControl === 'string'
+      && typeof asset.width === 'number'
+      && typeof asset.height === 'number'
+      && typeof asset.sourceRef === 'string'
+      && typeof asset.rights === 'string',
+    )
 }
