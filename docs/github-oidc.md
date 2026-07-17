@@ -17,6 +17,6 @@ The production job needs `permissions: { contents: read, id-token: write }` and 
 - `MEDIA_TENCENT_ROLE_ARN`
 - `MEDIA_OIDC_AUDIENCE` (`sts.tencentcloudapi.com`)
 
-The provider accepts only GitHub's HTTPS request URL, forbids redirects, and requests the configured audience explicitly. STS credentials must have more than five minutes remaining. Logs and reports must never print the OIDC JWT or temporary credential fields.
+The provider accepts only GitHub's HTTPS request URL, forbids redirects, and requests the configured audience explicitly. The STS exchange sends the required Unix-seconds `X-TC-Timestamp` common header together with `Authorization: SKIP`; it does not use a permanent signing key. STS credentials must have more than five minutes remaining. Logs and reports must never print the OIDC JWT or temporary credential fields.
 
 Keep the trust policy limited to the issuer, exact audience, exact production subject, and the intended repository identity claims. Pull requests and arbitrary branches must not satisfy the production subject.
