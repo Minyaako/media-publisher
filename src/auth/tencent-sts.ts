@@ -29,6 +29,7 @@ export class TencentWebIdentityCredentialProvider implements CredentialProvider 
   }
 
   async getCredentials(): Promise<TemporaryCredentials> {
+    const now = this.#now()
     const webIdentityToken = await this.#options.webIdentityToken()
     if (!webIdentityToken.trim()) throw new Error('Web identity token is empty')
 
@@ -41,6 +42,7 @@ export class TencentWebIdentityCredentialProvider implements CredentialProvider 
         'X-TC-Action': 'AssumeRoleWithWebIdentity',
         'X-TC-Version': '2018-08-13',
         'X-TC-Region': this.#options.region,
+        'X-TC-Timestamp': String(Math.floor(now.getTime() / 1000)),
       },
       body: JSON.stringify({
         ProviderId: this.#options.providerId,
@@ -73,7 +75,7 @@ export class TencentWebIdentityCredentialProvider implements CredentialProvider 
       token: requiredString(raw.Token, 'Token'),
       expiresAt: unixDate(result.ExpiredTime, 'ExpiredTime'),
     }
-    return assertUsableCredentials(credentials, this.#now())
+    return assertUsableCredentials(credentials, now)
   }
 }
 

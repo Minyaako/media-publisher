@@ -48,6 +48,7 @@ describe('Tencent web identity credential provider', () => {
         'X-TC-Action': 'AssumeRoleWithWebIdentity',
         'X-TC-Version': '2018-08-13',
         'X-TC-Region': 'ap-guangzhou',
+        'X-TC-Timestamp': String(Math.floor(now.getTime() / 1000)),
       },
     })
     expect(JSON.parse(String(init?.body))).toEqual({
