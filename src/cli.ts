@@ -2,11 +2,28 @@
 
 import { Command } from 'commander'
 import { validateLock } from './lock.js'
+import { prepareAssets } from './prepare.js'
 
 const program = new Command()
   .name('media-publisher')
   .description('Validate, prepare, and publish immutable media assets')
   .showHelpAfterError()
+
+program
+  .command('prepare')
+  .requiredOption('--manifest <path>', 'media manifest path')
+  .requiredOption('--lock <path>', 'output media lock path')
+  .option('--source-root <path>', 'private shared source-image root')
+  .action(async (options: { manifest: string; lock: string; sourceRoot?: string }) => {
+    const result = await prepareAssets({
+      manifestPath: options.manifest,
+      lockPath: options.lock,
+      ...(options.sourceRoot ? { sourceRoot: options.sourceRoot } : {}),
+    })
+    process.stdout.write(
+      `prepared ${result.generated.length}; skipped ${result.skipped.length}\n`,
+    )
+  })
 
 program
   .command('validate')
