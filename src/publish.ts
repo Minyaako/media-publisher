@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
-import { dirname, isAbsolute, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, relative, resolve, win32 } from 'node:path'
 import sharp from 'sharp'
 import type { MediaLock } from './domain.js'
 import type { ObjectStore } from './storage/types.js'
@@ -75,7 +75,9 @@ export async function writePublishReport(
 }
 
 export function resolveReportPath(workspaceRoot: string, reportPath: string): string {
-  if (!reportPath || isAbsolute(reportPath)) throw new Error('Report path must be workspace-relative')
+  if (!reportPath || isAbsolute(reportPath) || win32.isAbsolute(reportPath)) {
+    throw new Error('Report path must be workspace-relative')
+  }
   const root = resolve(workspaceRoot)
   const target = resolve(root, reportPath)
   const fromRoot = relative(root, target)
