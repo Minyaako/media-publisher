@@ -104,6 +104,12 @@ export function serializeLock(lock: MediaLock) {
   return `${JSON.stringify(lock, null, 2)}\n`
 }
 
+export async function loadLock(lockPath: string): Promise<MediaLock> {
+  const parsed: unknown = JSON.parse(await readFile(lockPath, 'utf8'))
+  if (!isMediaLock(parsed)) throw new Error('media lock is malformed')
+  return parsed
+}
+
 export async function validateLock(manifestPath: string, lockPath: string): Promise<void> {
   const actual = await readFile(lockPath, 'utf8')
   const parsed = JSON.parse(actual) as Partial<MediaLock>
@@ -119,4 +125,29 @@ export async function validateLock(manifestPath: string, lockPath: string): Prom
   if (actual !== expected) {
     throw new Error('media lock is stale; regenerate it from the current manifest and derivatives')
   }
+}
+
+function isMediaLock(value: unknown): value is MediaLock {
+  if (typeof value !== 'object' || value === null) return false
+  const lock = value as Partial<MediaLock>
+  return lock.version === 1
+    && typeof lock.publisherVersion === 'string'
+    && typeof lock.namespace === 'string'
+    && typeof lock.cdnBaseUrl === 'string'
+    && Array.isArray(lock.assets)
+    && lock.assets.every((asset) =>
+      typeof asset === 'object' && asset !== null
+      && typeof asset.id === 'string'
+      && typeof asset.file === 'string'
+      && typeof asset.sha256 === 'string' && /^[a-f0-9]{64}$/.test(asset.sha256)
+      && typeof asset.bytes === 'number' && Number.isSafeInteger(asset.bytes) && asset.bytes >= 0
+      && asset.contentType === 'image/webp'
+      && typeof asset.objectKey === 'string'
+      && typeof asset.url === 'string'
+      && typeof asset.cacheControl === 'string'
+      && typeof asset.width === 'number'
+      && typeof asset.height === 'number'
+      && typeof asset.sourceRef === 'string'
+      && typeof asset.rights === 'string',
+    )
 }
