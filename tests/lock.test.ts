@@ -92,4 +92,13 @@ describe('media lock', () => {
 
     expect(await readFile(fixture.lockPath, 'utf8')).toContain('stale')
   })
+
+  it('accepts Git working-tree CRLF without weakening lock content checks', async () => {
+    const fixture = await createFixture()
+    cleanups.push(fixture.cleanup)
+    const lock = await buildLock(fixture.manifestPath)
+    await writeFile(fixture.lockPath, serializeLock(lock).replaceAll('\n', '\r\n'), 'utf8')
+
+    await expect(validateLock(fixture.manifestPath, fixture.lockPath)).resolves.toBeUndefined()
+  })
 })

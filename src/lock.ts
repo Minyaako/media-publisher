@@ -122,7 +122,8 @@ export async function validateLock(manifestPath: string, lockPath: string): Prom
   )
   const expected = serializeLock(await buildLock(manifestPath, sourceHashes))
 
-  if (actual !== expected) {
+  const normalizedActual = actual.replaceAll('\r\n', '\n')
+  if (normalizedActual !== expected) {
     throw new Error('media lock is stale; regenerate it from the current manifest and derivatives')
   }
 }
