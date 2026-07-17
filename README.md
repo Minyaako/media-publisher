@@ -25,6 +25,6 @@ Consumers should pin a reviewed full 40-character commit SHA. GitHub Actions con
 - Existing objects are skipped only when size, MIME, and SHA-256 metadata match exactly.
 - EdgeOne verification forbids redirects and validates HTTPS, MIME, length, and full SHA-256.
 - GitHub OIDC and CVM metadata yield temporary credentials; permanent key providers do not exist.
-- PNG originals stay in the private shared source library. COS is delivery storage, not their backup.
+- Source images and delivery derivatives share one private COS bucket under isolated prefixes. Local server copies are recovery backups, not the authority.
 
-See [manifest and CLI contracts](docs/manifest.md), [GitHub OIDC](docs/github-oidc.md), [CVM usage](docs/cvm.md), and the [CAM policy template](docs/tencent-cam-policy.md).
+See the [shared media platform specification](docs/shared-media-spec.zh-CN.md), [manifest and CLI contracts](docs/manifest.md), [GitHub OIDC](docs/github-oidc.md), [CVM usage](docs/cvm.md), and the [CAM policy template](docs/tencent-cam-policy.md).
